@@ -4,48 +4,160 @@
     <div class="bookshelf-header">
       <div class="bookshelf-controls">
         <div v-if="isRenaming">
-          <input 
-            v-model="newBookshelfName" 
-            @keyup.enter="toggleRenameMode" 
-            class="rename-input" 
-            type="text" 
-            placeholder="새 책장 이름 입력"
-          />
+          <input v-model="newBookshelfName" @keyup.enter="renameBookshelf"
+          class="rename-input" type="text" placeholder="새 책장 이름 입력"/>
         </div>
-        <select
-          v-else
-          v-model="currentBookshelf"
-          @change="selectBookshelf"
-          class="bookshelf-select"
-        >
-          <option
-            v-for="(shelf, index) in bookshelves"
-            :key="index"
-            :value="shelf.name"
-          >
-            {{ shelf.name }}
+
+        <!-- 책장 리스트 -->
+        <select v-else v-model="currentBookshelf" @change="selectBookshelf" class="bookshelf-select">
+          <option value="null" disabled> ------- 책장을 추가해주세요 ------- </option>
+          <option v-for="shelf in bookshelves" :key="shelf.bookshelfId" :value="shelf.bookshelfId">
+            {{ [ shelf.bookshelfName ] }}
           </option>
         </select>
-        <button @click="toggleRenameMode" class="rename-button">
+
+        <button @click="toggleRenameMode" class="rename-button" :disabled="isNoBookshelf">
           {{ isRenaming ? "저장" : "이름 변경" }}
         </button>
-        <button @click="addBookshelf" class="add-bookshelf-button">+</button>
-        <button @click="deleteBookshelf" class="delete-bookshelf-button">🗑</button>
-        <button @click="openSidebar" class="add-book-button">책 등록</button> <!-- 책 등록 버튼 -->
+        <button @click="openAddBookshelfModal" class="add-bookshelf-button">+ 책장 생성</button>
+        <button @click="deleteBookshelf" class="delete-bookshelf-button" :disabled="isNoBookshelf">🗑 책장 삭제</button>
+        <button @click="openSidebar" class="add-book-button" :disabled="!currentBookshelf">책 등록</button>
+        <button @click="openRecommendationModal" class="recommend-button">책 추천 받기</button>
+        <button @click="toggleEditMode" class="edit-button">책장 편집</button>
+        <button @click="openShareModal" class="share-button" :disabled="isNoBookshelf">책장 공유</button>
       </div>
     </div>
+
+    <!-- 책장 공유용 게시글 작성 모달 -->
+    <PostEditor
+      v-if="showShareModal" :initial-title="sharePostTitle" :initial-content="sharePostContent" :initial-board="'FREE'"
+      @submit="submitSharedBookshelf" @cancel="closeShareModal"
+    />
 
     <!-- 네모난 책장 폼 -->
     <div class="bookshelf">
       <div class="book-grid">
-        <div
-          v-for="(book, index) in currentBookshelfBooks"
-          :key="index"
-          class="book-placeholder"
-        >
-          <div v-if="book.cover" class="book-cover">
-            <img :src="book.cover" alt="책 표지" />
+        <div v-for="(book, index) in currentBookshelfBooks" 
+          :key="index" class="book-placeholder" @contextmenu.prevent="showContextMenu($event, book)">
+          <div v-if="book.cover" class="bookshelfbook-cover">
+            <img :src="book.cover || 'default-cover.jpg'" alt="책 표지" />
           </div>
+          <div class="bookshelf-info">
+            <div class="bookshelf-title">{{ truncateTitleBeforeSpecialChar(book.title) }}</div>
+            <div class="bookshelf-author">{{ book.author.length > 20 ? book.author.slice(0, 20) + '...' : book.author }}</div>
+            <div class="bookshelf-category">{{ book.categoryName }}</div>
+            <button v-if="isEditing" @click="removeBook(book)" class="remove-book-button">-</button>
+          </div>
+        </div>
+      </div>
+      <!-- 컨텍스트 메뉴 -->
+      <div v-if="contextMenuVisible" class="context-menu" :style="{ top: `${contextMenuY}px`, left: `${contextMenuX}px` }">
+        <button @click="viewBookInfo()">책 상세보기</button>
+        <button @click="removeBookFromContextMenu">책 삭제</button>
+      </div>
+    </div>
+
+    <!-- 책장 추가 모달 -->
+    <div v-if="isAddBookshelfModalOpen" class="add-bookshelf-modal">
+      <div class="add-bookshelf-modal-content">
+        <label for="new-bookshelf-name">책장 이름</label>
+        <input type="text" id="new-bookshelf-name" v-model="newBookshelfNameForModal" placeholder="책장 이름 입력" />
+        <button @click="addBookshelf" class="create-bookshelf-button">책장 생성하기</button>
+        <button @click="closeAddBookshelfModal" class="close-modal-button">취소</button>
+      </div>
+    </div>
+
+    <!-- 로딩 모달 -->
+    <div v-if="isLoading" class="loading-modal">
+      <div class="loading-modal-content">
+        <div class="spinner"></div> <!-- 여기에 CSS로 애니메이션 -->
+        <p>도서 추천 목록 불러오는 중... (약 1~2분 소요)</p>
+        <button @click="cancelRecommendation" class="cancel-recommendation-button">추천 취소</button>
+      </div>
+    </div>
+
+    <!-- 추천받기 모달 -->
+    <div v-if="isRecommendationModalOpen" class="recommendation-modal">
+      <div class="recommendation-modal-content">
+        <h3>맞춤형 도서 추천받기</h3>
+        <div class="plus-recommendation-options"> 
+          <button @click="setRecommendationType('preference')" :class="{ active: recommendationType === 'preference' }">내 취향 추천</button>
+          <button @click="setRecommendationType('quick')" :class="{ active: recommendationType === 'quick' }">빠른 통합 추천</button>
+          <button @click="setRecommendationType('ai')" :class="{ active: recommendationType === 'ai' }">AI 키워드 추천</button>
+        </div>
+        <div v-if="recommendationType === 'preference'" class="recommendation-options">
+          <p>내 취향(선호 장르)에 맞춘 도서를 추천받으시겠습니까?</p>
+          <div class="button-container">
+            <button @click="recommendPreference" class="recommend-books-button">추천받기</button>
+            <button @click="closeRecommendationModal" class="close-modal-button">취소</button>
+          </div>
+        </div>
+        <div v-if="recommendationType === 'quick'" class="recommendation-options">
+          <p>빠르게 통합 추천받으시겠습니까?</p>
+          <div class="button-container">
+            <button @click="recommendQuick" class="recommend-books-button">추천받기</button>
+            <button @click="closeRecommendationModal" class="close-modal-button">취소</button>
+          </div>
+        </div>
+        <div v-if="recommendationType === 'ai'" class="recommendation-options">
+          <p>AI 기반 키워드 분석을 포함한 정밀 추천을 받으시겠습니까?</p>
+          <div class="button-container">
+            <button @click="recommendAI" class="recommend-books-button">추천받기</button>
+            <button @click="closeRecommendationModal" class="close-modal-button">취소</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 추가 평점 모달 -->
+    <div v-if="isAdditionalRatingModalOpen" class="additional-rating-modal">
+      <div class="additional-rating-modal-content">
+        <div class="additional-rating-header">도서 추천 결과</div>
+        <div class="rating-list">
+          <div class="rating-item" v-for="book in recommendations" :key="book.isbn">
+            <div class="rating-cover">
+              <img :src="book.cover" alt="책 표지" />
+            </div>
+            <div class="rating-info">
+              <div class="rating-title">{{ book.title }}</div>
+              <div class="rating-author">저자: {{ book.author.length > 20 ? book.author.slice(0, 20) + '...' : book.author }}</div>
+              <div class="rating-category">카테고리: {{ book.categoryName }}</div>
+            </div>
+            <div class="rating-save-button-area">
+              <button @click="selectBook(book)" class="rating-save-button">저장</button>
+            </div>
+            <div>
+              <div class="rating-details">
+                <template v-if="recommendationType === 'preference'">
+                  <div class="rating-score">가중평점: {{ book.weightedRatingScore?.toFixed(2) ?? 'N/A' }}</div>
+                  <div class="rating-loan">대출 점수: {{ book.loanScore?.toFixed(2) ?? 'N/A' }}</div>
+                  <div class="rating-best">베스트셀러 점수: {{ book.bestsellerScore }}</div>
+                  <div class="rating-total">총점: {{ book.totalScore?.toFixed(2) ?? 'N/A' }}</div>
+                </template>
+                <template v-else>
+                  <div class="rating-gerne">장르 유사 점수: {{ book.similarityScore }}</div>
+                  <div class="rating-prefer">선호 장르 점수: {{ book.preferenceScore }}</div>
+                  <div class="rating-keyword">키워드 점수: {{ book.keywordScore }}</div>
+                  <div class="rating-score">가중평점: {{ book.weightedRatingScore?.toFixed(2) ?? 'N/A' }}</div>
+                  <div class="rating-loan">대출 점수: {{ book.loanScore.toFixed(2) ?? 'N/A' }}</div>
+                  <div class="rating-best">베스트셀러 점수: {{ book.bestsellerScore }}</div>
+                  <div class="rating-total">총점: {{ book.totalScore?.toFixed(2) ?? 'N/A' }}</div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button @click="closeAdditionalRatingModal" class="close-rating-modal-button">닫기</button>
+      </div>
+    </div>
+
+    <!-- 확인 모달 -->
+    <div v-if="showConfirmModal" class="confirm-modal">
+      <div class="confirm-modal-content">
+        <p>'{{ selectedBook.title }}' 을 저장하시겠습니까?</p>
+        <div class="confirm-modal-button-container">
+          <button @click="confirmAddBook">예</button>
+          <button @click="cancelAddBook">아니요</button>
         </div>
       </div>
     </div>
@@ -54,29 +166,20 @@
     <div v-if="isSidebarOpen" class="sidebar">
       <div class="sidebar-content">
         <button class="close-button" @click="closeSidebar">✖</button>
-        <h3>책 등록</h3>
         <div class="registration-options">
-          <button @click="setRegisterType('manual')" :class="{ active: registerType === 'manual' }">
-            직접 등록
-          </button>
-          <button @click="setRegisterType('isbn')" :class="{ active: registerType === 'isbn' }">
-            ISBN 등록
-          </button>
-          <button @click="setRegisterType('photo')" :class="{ active: registerType === 'photo' }">
-            사진 등록
-          </button>
+          <button @click="setRegisterType('manual')" :class="{ active: registerType === 'manual' }">직접 등록</button>
+          <button @click="setRegisterType('isbn')" :class="{ active: registerType === 'isbn' }">ISBN 등록</button>
+          <button @click="setRegisterType('photo')" :class="{ active: registerType === 'photo' }">사진 등록</button>
         </div>
 
         <!-- 직접 등록 폼 -->
         <div v-if="registerType === 'manual'" class="manual-form">
-          <label for="title">책 제목</label>
           <input type="text" id="title" v-model="manualTitle" placeholder="책 제목 입력" />
           <button @click="searchManual">검색</button>
         </div>
 
         <!-- ISBN 등록 폼 -->
         <div v-if="registerType === 'isbn'" class="isbn-form">
-          <label for="isbn">ISBN</label>
           <input type="text" id="isbn" v-model="isbn" placeholder="ISBN 입력" />
           <button @click="searchISBN">검색</button>
         </div>
@@ -86,73 +189,301 @@
           <button @click="openFileInput" class="file-upload-button">첨부파일</button>
           <button @click="openCamera" class="camera-button">사진 촬영</button>
         </div>
+
+        <!-- 검색된 책들 -->
+        <div v-if="searchResults.length" class="search-results">
+          <h4>검색된 책들:</h4>
+          <ul>
+            <li v-for="(book, index) in paginatedResults" :key="index">
+              <div class="search-book-item">
+                <div class="sidebook-cover">
+                  <img :src="book.cover" alt="책 표지" />
+                </div>
+                <div class="sidebook-info">
+                  <p class="sidebook-title" :title="book.title">
+                    {{ book.title.length > 25 ? book.title.slice(0, 25) + '...' : book.title }}
+                  </p>
+                  <p class="sidebook-author">{{ book.author }}</p>
+                  <button @click="selectBook(book)" class="sideselect-book-button">선택</button>
+                </div>
+              </div>
+            </li>
+          </ul>
+
+          <!-- 페이지네이션 버튼 -->
+          <div class="pagination">
+            <button @click="changePage(currentPage - 1)" :disabled="currentPage === 1">이전</button>
+            <span>{{ currentPage }} / {{ totalPages }}</span>
+            <button @click="changePage(currentPage + 1)" :disabled="currentPage === totalPages">다음</button>
+          </div>
+        </div>
+
+        <!-- 확인 모달 -->
+        <div v-if="showConfirmModal" class="confirm-modal">
+          <div class="confirm-modal-content">
+            <p>'{{ selectedBook.title }}' 을 저장하시겠습니까?</p>
+            <div class="confirm-modal-button-container">
+              <button @click="confirmAddBook">예</button>
+              <button @click="cancelAddBook">아니요</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
-
 <script>
+import axios from 'axios';
+import PostEditor from "@/components/PostEditor.vue";
+
+axios.defaults.baseURL = 'http://localhost:8081'; // 기본 API 주소 설정
+
 export default {
   name: "MyBooksView",
+  components: { PostEditor },
   data() {
     return {
-      bookshelves: [
-        { name: "책장 1", books: Array(20).fill({ cover: null }) },
-      ],
-      currentBookshelf: "책장 1",
+      bookshelves: [], // 기본값은 빈 배열로 설정
+      currentBookshelf: null, // 기본값은 'null'로 설정
       isRenaming: false,
-      newBookshelfName: "",
+      newBookshelfName: "",  // 입력 필드에 사용할 새 책장 이름
+      isNoBookshelf: false, // 선택된 책장이 없을 때 처리할 상태
+      newBookshelfNameForModal: "", // 모달에 입력할 새 책장 이름
       isSidebarOpen: false,
       registerType: "manual",
       manualTitle: "",
       isbn: "",
-      isPhotoRegistrationOpen: false,  // 사진 등록 버튼 활성화
+      isAddBookshelfModalOpen: false, // 책장 추가 모달 열기 여부
+      isRecommendationModalOpen: false, // 추천받기 모달 열기 여부
+      isAdditionalRatingModalOpen: false,
+      recommendationType: "preference", // 추천 타입
+      searchResults: [], // 검색된 책 정보
+      books: [], // 책 배열 초기화
+      currentPage: 1, // 현재 페이지
+      booksPerPage: 6, // 페이지당 책 개수
+      showConfirmModal: false, // 책 선택버튼 누르면 뜨는 창
+      isEditing: false,  // 책장 편집 모드 상태 추가
+      contextMenuVisible: false, // 컨텍스트 메뉴 표시 여부
+      contextMenuX: 0, // 컨텍스트 메뉴 X 좌표
+      contextMenuY: 0, // 컨텍스트 메뉴 Y 좌표
+      selectedBook: null, // 선택된 책
+      recommendations: [], // 추천받은 책 목록
+      isBooksModalOpen: false, // 책 추천 결과 모달 상태
+      isLoading: false,
+      loadingMessage: "도서 추천 목록 불러오는 중... (약 1~2분 소요)", // 로딩 모달 멘트
+      abortController: null,
     };
   },
+
+  created() {
+    this.fetchBookshelves();
+  },
+
+  // 마우스 클릭 시 메뉴를 닫기 위해 이벤트 추가
+  mounted() {
+    document.addEventListener('click', this.closeContextMenu);
+  },
+  beforeUmount() {
+    document.removeEventListener('click', this.closeContextMenu);
+  },
+
   computed: {
     currentBookshelfBooks() {
       const shelf = this.bookshelves.find(
-        (shelf) => shelf.name === this.currentBookshelf
+        // (shelf) => shelf.name === this.currentBookshelf
+        (shelf) => shelf.bookshelfId === this.currentBookshelf // ID로 비교
       );
-      return shelf ? shelf.books : [];
+      return shelf ? shelf.book : []; // 책장에 등록된 책 목록 반환
+    },
+
+    // 사이드바 결과 페이지 쪽수
+    paginatedResults() {
+      const start = (this.currentPage - 1) * this.booksPerPage;
+      const end = this.currentPage * this.booksPerPage;
+      return this.searchResults.slice(start, end);
+    },
+    totalPages() {
+      return Math.ceil(this.searchResults.length / this.booksPerPage); // 총 페이지 수
     },
   },
+
   methods: {
-    toggleRenameMode() {
-      if (this.isRenaming) {
-        const shelf = this.bookshelves.find(
-          (shelf) => shelf.name === this.currentBookshelf
-        );
-        if (shelf) shelf.name = this.newBookshelfName;
-        this.currentBookshelf = this.newBookshelfName;
-      } else {
-        this.newBookshelfName = this.currentBookshelf;
+    cancelRecommendation() {
+      if (this.abortController) {
+        this.abortController.abort(); // ✅ 요청 취소
+        this.isLoading = false;
+        this.abortController = null; // 정리
       }
-      this.isRenaming = !this.isRenaming;
     },
-    selectBookshelf() {
-      // 책장 변경 로직
+
+    closeBooksModal() {
+      this.isBooksModalOpen = false; // 책 추천 결과 모달 닫기
     },
-    addBookshelf() {
-      const newShelfName = `책장 ${this.bookshelves.length + 1}`;
-      this.bookshelves.push({ name: newShelfName, books: Array(20).fill({ cover: null }) });
-      this.currentBookshelf = newShelfName;
+    
+    truncateTitleBeforeSpecialChar(title) {
+    // 특정 특수 기호가 나타나는 위치를 찾음
+    const index = title.search(/[-:/]/); // '-', ':', '/' 중 첫 번째 문자의 인덱스
+
+    // 특수 기호가 없으면 전체 제목을 반환하고, 있으면 그 이전까지 반환
+    return index === -1 ? title : title.slice(0, index);
     },
-    deleteBookshelf() {
-      if (this.bookshelves.length === 1) {
-        alert("최소 1개의 책장이 존재해야 합니다.");
-        return; // 책장이 하나일 경우 삭제하지 않음
+
+    // 오른쪽 클릭 시 컨텍스트 메뉴 표시
+    showContextMenu(event, book) {
+      this.selectedBook = book; // 선택된 책 저장
+      this.contextMenuX = event.clientX; // 클릭한 위치의 X 좌표
+      this.contextMenuY = event.clientY; // 클릭한 위치의 Y 좌표
+      this.contextMenuVisible = true; // 메뉴 표시
+    },
+
+    // 책 정보 뷰로 이동
+    viewBookInfo() {
+      if (this.selectedBook && this.selectedBook.isbn) {
+        this.$router.push({
+          name: 'BookDetails',
+          params: { isbn: this.selectedBook.isbn } 
+        });
+      } else {
+        console.error('isbn이 존재하지 않습니다:', this.selectedBook);
+      }
+      this.contextMenuVisible = false;
+    },
+
+    // 클릭 외부 시 메뉴 닫기
+    closeContextMenu() {
+      this.contextMenuVisible = false;
+    },
+
+    // 특정 사용자의 책장 불러오기 (책장 목록 조회 API)
+    async fetchBookshelves() {
+      const user = JSON.parse(localStorage.getItem('user'));
+      const userId = user ? user.userId : null; // userId를 가져옵니다.
+
+      try {
+        const response = await axios.get(`/api/bookshelf/${userId}`); // userId를 URL에 포함
+        this.bookshelves = response.data.result; // result 필드를 사용하여 책장과 책 정보를 포함한 배열로 설정
+      } catch (error) {
+        console.error('책장 목록 조회 실패:', error);
+      }
+    },
+
+    // 책장 생성 API
+    async addBookshelf() {
+      const user = JSON.parse(localStorage.getItem('user'));
+      const userId = user ? user.userId : null;  // userId를 가져옵니다.
+
+      if (!this.newBookshelfNameForModal.trim()) {
+        alert("책장 이름을 입력해 주세요.");
+        return;
       }
 
-      this.bookshelves = this.bookshelves.filter(
-        (shelf) => shelf.name !== this.currentBookshelf
-      );
-      if (this.bookshelves.length > 0) {
-        this.currentBookshelf = this.bookshelves[0].name;
-      } else {
-        this.addBookshelf();
+      try {
+        const response = await axios.post('/api/bookshelf/create', {
+          userId: userId,
+          bookshelfName: this.newBookshelfNameForModal,
+        });
+
+        if (response.data.isSuccess) { // 응답 상태를 isSuccess로 확인
+          alert(`${this.newBookshelfNameForModal} 책장이 추가되었습니다!`); // 알림 메시지
+          
+          // 책장 목록을 다시 불러옵니다.
+          await this.fetchBookshelves(); 
+
+          this.newBookshelfNameForModal = "";
+          this.isAddBookshelfModalOpen = false; // 모달 닫rl
+        } else {
+          alert("책장 추가 실패: " + response.data.message);
+        }
+      } catch (error) {
+        console.error("책장 추가 중 오류 발생:", error);
       }
+    },
+
+    toggleRenameMode() {
+      if (this.currentBookshelf === null) {
+        alert("책장을 먼저 선택해주세요.");
+        return;
+      }
+
+      if (this.isRenaming) {
+        this.renameBookshelf();  // 이름 변경 모드에서 저장 진행
+      } else {
+        // 이름 변경 모드 시작
+        const shelf = this.bookshelves.find(shelf => shelf.bookshelfId === this.currentBookshelf);
+        if (shelf) {
+          this.newBookshelfName = shelf.bookshelfName; // 현재 선택된 책장 이름으로 초기화
+        }
+      }
+      this.isRenaming = !this.isRenaming; // 모드 토글
+    },
+    
+    // 책장 이름 변경 API
+    async renameBookshelf() {
+      if (!this.currentBookshelf) return; // 선택된 책장이 없을 경우 처리
+      if (!this.newBookshelfName.trim()) {
+        alert("새 이름을 입력해 주세요.");
+        return; // 새 이름이 비어있을 경우 처리
+      }
+
+      // bookshelfId를 숫자형으로 변환
+      const bookshelfId = Number(this.currentBookshelf);
+
+      // 요청 데이터 확인
+      console.log("Request body:", {
+        bookshelfId: bookshelfId, // 수정할 책장 ID
+        bookshelfName: this.newBookshelfName, // 새 책장 이름
+      });
+
+      try {
+        const response = await axios.patch("/api/bookshelf/edit", {
+          bookshelfId: bookshelfId, // 수정할 책장 ID
+          bookshelfName: this.newBookshelfName, // 새 책장 이름
+        });
+
+        if (response.data.isSuccess) {
+          alert("책장 이름이 수정되었습니다!");
+          await this.fetchBookshelves(); // 변경된 데이터 다시 가져오기
+          this.isRenaming = false; // 이름 변경 모드 종료
+          this.newBookshelfName = ""; // 입력 필드 초기화
+        } else {
+          alert("책장 이름 수정 실패: " + response.data.message);
+        }
+      } catch (error) {
+        console.error('책장 이름 수정 실패:', error);
+        alert("책장 이름 수정 중 오류가 발생했습니다.");
+      }
+    },
+
+    // 책장 삭제 API
+    async deleteBookshelf() {
+      if (!this.selectedBookshelf) return; // 선택된 책장이 없을 경우 처리
+      
+      if (!confirm('정말 이 책장을 삭제하시겠습니까?')) return;
+
+      try {
+        const response = await axios.delete(`/api/bookshelf/delete/${this.selectedBookshelf}`);
+
+        if (response.data.isSuccess) { // isSuccess로 확인
+          alert("책장이 삭제되었습니다!");
+          this.fetchBookshelves(); // 변경된 데이터 다시 가져오기
+        } else {
+          alert("책장 삭제 실패: " + response.data.message);
+        }
+      } catch (error) {
+        console.error('책장 삭제 실패:', error);
+      }
+    },
+
+    selectBookshelf() {
+      this.selectedBookshelf = this.currentBookshelf; // 현재 선택된 책장 ID를 저장
+    },
+    openAddBookshelfModal() {
+      this.isAddBookshelfModalOpen = true;
+    },
+    closeAddBookshelfModal() {
+      this.isAddBookshelfModalOpen = false;
+      this.newBookshelfNameForModal = "";
     },
     openSidebar() {
       this.isSidebarOpen = true;
@@ -162,22 +493,238 @@ export default {
       this.manualTitle = "";
       this.isbn = "";
     },
+
+    // 추천받기 모달 열기
+    openRecommendationModal() {
+      this.isRecommendationModalOpen = true;
+    },
+
+    // 추천받기 모달 닫기
+    closeRecommendationModal() {
+      this.isRecommendationModalOpen = false;
+    },
+
+    closeAdditionalRatingModal(){
+      this.isAdditionalRatingModalOpen = false;
+    },
+
+    setRecommendationType(type) {
+      this.recommendationType = type;
+    },
+
+     // 내 취향 기반 추천 (책장 없이)
+    async recommendPreference() {
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const userId = user?.userId;
+
+      if (!userId) {
+        console.error("userId가 유효하지 않습니다.");
+        return;
+      }
+
+      this.isLoading = true;
+
+      if (this.abortController) {
+        this.abortController.abort();
+      }
+      this.abortController = new AbortController();
+
+      try {
+        const response = await axios.get(`/api/recommend/${userId}/genre`, {
+          signal: this.abortController.signal,
+        });
+
+        if (response.data.isSuccess) {
+          this.recommendations = response.data.result;
+          this.isAdditionalRatingModalOpen = true; 
+          this.closeRecommendationModal();
+        } else {
+          console.error("추천받기 실패:", response.data.message);
+          alert("추천받기 실패: " + response.data.message);
+        }
+      } catch (error) {
+        if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
+          console.log("추천 요청이 취소되었습니다.");
+        } else {
+          console.error("추천받기 오류:", error);
+          alert("추천 중 오류가 발생했습니다.");
+        }
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    // 빠른 통합 추천
+    async recommendQuick() {
+      this.isLoading = true;
+
+      if (this.abortController) {
+        this.abortController.abort();
+      }
+      this.abortController = new AbortController();
+
+      try {
+        const response = await axios.get(`/api/recommend/total/${this.selectedBookshelf}`, {
+          signal: this.abortController.signal,
+        });
+
+        if (response.data.isSuccess) {
+          this.recommendations = response.data.result;
+          this.isAdditionalRatingModalOpen = true; 
+          this.closeRecommendationModal();
+        } else {
+          console.error("추천받기 실패:", response.data.message);
+          alert("추천받기 실패: " + response.data.message);
+        }
+      } catch (error) {
+        if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
+          console.log("추천 요청이 취소되었습니다.");
+        } else {
+          console.error("추천받기 오류:", error);
+          alert("추천 중 오류가 발생했습니다.");
+        }
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    // AI 기반 키워드 정밀 추천 API
+    async recommendAI() {
+      this.isLoading = true;
+
+      if (this.abortController) {
+        this.abortController.abort();
+      }
+      this.abortController = new AbortController();
+
+      try {
+        const response = await axios.get(`/api/recommend/total/${this.selectedBookshelf}`, {
+          signal: this.abortController.signal,
+        });
+
+        if (response.data.isSuccess) {
+          this.recommendations = response.data.result;
+          this.isAdditionalRatingModalOpen = true; 
+          this.closeRecommendationModal();
+        } else {
+          console.error("추천받기 실패:", response.data.message);
+          alert("추천받기 실패: " + response.data.message);
+        }
+      } catch (error) {
+        if (error.name === "CanceledError" || error.code === "ERR_CANCELED") {
+          console.log("추천 요청이 취소되었습니다.");
+        } else {
+          console.error("추천받기 오류:", error);
+          alert("추천 중 오류가 발생했습니다.");
+        }
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    // 검색된 책을 책장에 넣는 작업
+    async selectBook(book) {
+      this.selectedBook = book; // 선택한 책 정보를 저장
+      this.showConfirmModal = true; // 모달 표시
+    },
+
+    async selectRating(book) {
+      this.selectedRating = book;
+      this.showConfirmModal = true;
+    },
+
+    confirmAddBook() {
+      if (!this.currentBookshelf) {
+        alert("책장을 먼저 선택해주세요.");
+        return;
+      }
+
+      // 선택된 책장의 책 개수 확인
+      const currentBookshelfBooks = this.currentBookshelfBooks; // 현재 책장에 있는 책 목록
+      if (currentBookshelfBooks.length >= 10) {
+        alert("한 책장에는 최대 10권의 책만 추가할 수 있습니다.");
+        return; // 10권 이상일 경우 추가하지 않음
+      }
+
+      try {
+        // API 요청: 선택한 책의 ISBN을 이용해 책장에 추가
+        axios.post(`/api/bookshelf/${this.currentBookshelf}/register`, null, {
+          params: { isbn13: this.selectedBook.isbn } // this.selectedBook 사용
+        }).then(() => {
+          this.fetchBookshelves(); 
+          alert(`'${this.selectedBook.title}' 책이 책장에 추가되었습니다.`);
+          this.showConfirmModal = false; // 모달을 닫습니다.
+        });
+      } catch (error) {
+        console.error('책 추가 실패:', error);
+        alert("책 추가 중 오류가 발생했습니다.");
+      }
+    },
+
+    cancelAddBook() {
+      this.showConfirmModal = false; // 모달 닫기
+    },
+
+    // 책장 검색 쪽수수
+    changePage(page) {
+      if (page < 1 || page > this.totalPages) return;
+      this.currentPage = page;
+    },
+
     setRegisterType(type) {
       this.registerType = type;
     },
-    searchManual() {
-      console.log("검색된 책 제목:", this.manualTitle);
-    },
-    searchISBN() {
-      console.log("검색된 ISBN:", this.isbn);
-    },
-    
-    // 사진 등록 버튼 클릭 시
-    openPhotoRegistration() {
-      this.isPhotoRegistrationOpen = !this.isPhotoRegistrationOpen;
+
+    // 알라딘 도서 검색 API (제목 검색)
+    async searchManual() {
+      try {
+        const response = await axios.get(`/api/books/search`, {
+          params: { query: this.manualTitle },
+        });
+
+        if (response.data.books.length === 0) {
+          alert("검색 결과가 없습니다.");
+        }
+
+        this.searchResults = response.data.books.map(book => ({
+          title: book.title,
+          author: book.author,
+          publisher: book.publisher,
+          isbn: book.isbn,
+          cover: book.cover,
+        }));
+        this.currentPage = 1; // 검색 후 페이지를 1로 초기화
+      } catch (error) {
+        console.error("책 검색 오류:", error);
+      }
     },
 
-    // 파일 첨부 버튼 클릭 시
+    // 알라딘 도서 검색(ISBN)
+    async searchISBN() {
+      try {
+        const response = await axios.get(`/api/books/search`, {
+          params: { query: this.isbn },
+        });
+
+        if (response.data.books.length === 0) {
+          alert("검색 결과가 없습니다.");
+        }
+
+        const book = response.data.books[0];
+        this.searchResults = [{
+          title: book.title,
+          author: book.author,
+          publisher: book.publisher,
+          isbn: book.isbn,
+          cover: book.cover,
+        }];
+        this.currentPage = 1; // 검색 후 페이지를 1로 초기화
+      } catch (error) {
+        console.error("ISBN 검색 오류:", error);
+      }
+    },
+
     openFileInput() {
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
@@ -188,19 +735,14 @@ export default {
         const file = fileInput.files[0];
         if (file) {
           console.log("첨부된 파일:", file);
-          // 파일 처리 로직 추가
         }
       });
     },
-
-    // 사진 촬영 버튼 클릭 시
     openCamera() {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        // 모바일 환경에서 카메라 열기
         navigator.mediaDevices.getUserMedia({ video: true })
           .then(() => {
             console.log("카메라가 열렸습니다.");
-            // 비디오 스트림을 화면에 표시하거나 처리할 로직을 여기에 추가 가능
           })
           .catch((err) => {
             console.error("카메라 연결 실패:", err);
@@ -210,166 +752,54 @@ export default {
       }
     },
 
-  },
+    // 책장 편집 모드 토글
+    toggleEditMode() {
+      this.isEditing = !this.isEditing;
+    },
+
+    // 책 삭제 메서드
+    async removeBook(book) {
+      if (confirm(`'${book.title}' 책을 삭제하시겠습니까?`)) {
+        try {
+          const response = await axios.delete(`/api/bookshelf/delete/book/${this.selectedBookshelf}/${book.bookId}`, {
+          });
+
+          if (response.data.isSuccess) {
+            alert(`${book.title}이(가) 삭제되었습니다.`);
+            // 책장 목록 업데이트
+            this.fetchBookshelves();
+          } else {
+            alert("책 삭제 실패: " + response.data.message);
+          }
+        } catch (error) {
+          console.error("책 삭제 중 오류 발생:", error);
+        }
+      }
+    },
+
+    // 컨텍스트메뉴에서 책 삭제
+    async removeBookFromContextMenu() {
+      if (this.selectedBook && confirm(`'${this.selectedBook.title}' 책을 삭제하시겠습니까?`)) {
+        try {
+          const response = await axios.delete(`/api/bookshelf/delete/book/${this.selectedBookshelf}/${this.selectedBook.bookId}`);
+
+          if (response.data.isSuccess) {
+            alert(`${this.selectedBook.title}이(가) 삭제되었습니다.`);
+            // 책장 목록 업데이트
+            this.fetchBookshelves();
+          } else {
+            alert("책 삭제 실패: " + response.data.message);
+          }
+        } catch (error) {
+          console.error("책 삭제 중 오류 발생:", error);
+        }
+      }
+    },
+
+  }
 };
+
+
 </script>
 
-<style scoped>
-.my-books {
-  padding: 20px;
-}
-
-.bookshelf-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.bookshelf-controls {
-  display: flex;
-  align-items: center;
-}
-
-.bookshelf-select {
-  padding: 5px;
-  margin-right: 10px;
-  width: 300px;
-}
-
-.rename-button,
-.add-bookshelf-button,
-.delete-bookshelf-button,
-.add-book-button,
-.photo-registration-button {
-  background-color: #ffa500;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 5px 10px;
-  cursor: pointer;
-  margin-right: 5px;
-}
-
-.add-bookshelf-button {
-  background-color: #28a745;
-  font-size: 12.5pt;
-}
-
-.delete-bookshelf-button {
-  background-color: #dc3545;
-  font-size: 10.5pt;
-}
-
-.add-book-button {
-  background-color: #007bff; /* 책 등록 버튼 색 */
-}
-
-.photo-registration-button {
-  background-color: #ff5722; /* 사진 등록 버튼 색 */
-}
-
-.bookshelf {
-  background-color: #f8f9fa;
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-}
-
-.book-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 30px;
-}
-
-.book-placeholder {
-  width: 80%;
-  padding-top: 100%;
-  background-color: #e9ecef;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  position: relative;
-  display: flex;
-  justify-content: center; /* 책 표지를 가로 중앙으로 정렬 */
-  align-items: center; /* 책 표지를 세로 중앙으로 정렬 */
-}
-
-.book-cover img {
-  width: 80%; /* 책 표지 너비를 80%로 설정 */
-  height: auto; /* 자동으로 비율에 맞게 높이를 설정 */
-  object-fit: cover;
-  border-radius: 8px;
-}
-
-
-/* 사이드바 스타일 */
-.sidebar {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 400px;
-  height: 100%;
-  background-color: #fff;
-  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  padding: 25px;
-}
-
-.sidebar button {
-  background-color: #FFA500; /* 주황색 */
-  color: white; /* 글씨 색은 흰색 */
-  border: none; /* 기본 border 제거 */
-  border-radius: 4px; /* 버튼 모서리 둥글게 */
-  padding: 8px 10px; /* 버튼 크기 조정 */
-  cursor: pointer; /* 마우스 커서가 버튼에 올려지면 손가락 모양으로 변경 */
-  margin-bottom: 20px; /* 버튼들 간의 간격 */
-}
-
-.rename-button:hover {
-  background-color: #e68900; /* 어두운 주황색 */
-}
-
-.add-bookshelf-button:hover {
-  background-color: #218838; /* 어두운 초록색 */
-}
-
-.delete-bookshelf-button:hover {
-  background-color: #c82333; /* 어두운 빨간색 */
-}
-
-.add-book-button:hover {
-  background-color: #0056b3; /* 어두운 파란색 */
-}
-
-.photo-registration-button:hover {
-  background-color: #e64a19; /* 어두운 오렌지색 */
-}
-
-/* 파일 입력 스타일 */
-.file-input,
-.camera-button {
-  margin-top: 15px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.file-input:hover,
-.camera-button:hover {
-  background-color: #0056b3;
-}
-
-/* 사이드바 버튼 hover 효과 */
-.sidebar button:hover {
-  background-color: #e69500; /* 어두운 주황색 */
-}
-
-.rename-input {
-  padding: 5px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-</style>
+<style src="../css/mybooks.css"></style>

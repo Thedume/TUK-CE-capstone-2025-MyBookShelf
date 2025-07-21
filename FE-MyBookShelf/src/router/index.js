@@ -10,10 +10,12 @@ const routes = [
     component: LayoutView, // 공통 레이아웃 사용
     children: [
       { path: '', name: 'Home', component: HomeView },
+      { path: 'search', name: 'SearchView', component: () => import('@/views/SearchView.vue') },
       { path: 'category', name: 'Category', component: () => import('../views/CategoryView.vue') },
       { path: 'community', name: 'Community', component: () => import('../views/CommunityView.vue') },
       { path: 'guidelines', name: 'Guidelines', component: () => import('../views/GuidelinesView.vue') },
       { path: 'mybooks', name: 'MyBooks', component: () => import('../views/MyBooksView.vue') },
+      { path: 'book/:isbn', name: 'BookDetails', component: () => import('@/views/BookDetailsView.vue') }
     ],
   },
   {
@@ -29,7 +31,7 @@ const routes = [
     meta: { layout: false }, // 레이아웃 제외
   },
   {
-    path: '/:pathMatch(.*)*',
+    path: '/:pathMatch(.)',
     redirect: '/', // 404 처리: 홈으로 리다이렉트
   },
 ];
