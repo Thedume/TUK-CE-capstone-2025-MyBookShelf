@@ -11,7 +11,6 @@ const routes = [
     children: [
       { path: '', name: 'Home', component: HomeView },
       { path: 'search', name: 'SearchView', component: () => import('@/views/SearchView.vue') },
-      { path: 'category', name: 'Category', component: () => import('../views/CategoryView.vue') },
       { path: 'community', name: 'Community', component: () => import('../views/CommunityView.vue') },
       { path: 'guidelines', name: 'Guidelines', component: () => import('../views/GuidelinesView.vue') },
       { path: 'mybooks', name: 'MyBooks', component: () => import('../views/MyBooksView.vue') },
@@ -22,13 +21,13 @@ const routes = [
     path: '/login',
     name: 'Login',
     component: LoginView,
-    meta: { layout: false }, // 레이아웃 제외
+    meta: { layout: false, footer: false }, // 레이아웃 제외
   },
   {
     path: '/signup',
     name: 'Signup',
     component: SignupView,
-    meta: { layout: false }, // 레이아웃 제외
+    meta: { layout: false, footer: false }, // 레이아웃 제외
   },
   {
     path: '/:pathMatch(.)',

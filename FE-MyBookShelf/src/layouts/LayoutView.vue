@@ -1,24 +1,14 @@
 <template>
   <div class="app-layout">
-    <!-- 상단 고정바 -->
     <header>
       <img src="@/assets/logo.png" alt="Logo" class="logo" @click="goToHome" />
       <div class="search-container">
         <div class="search-box">
-          <input
-            type="text"
-            v-model="searchQuery"
-            @keyup.enter="goToSearch"
-            placeholder="검색..."
-            class="search-input"
-          />
-          <button @click="goToSearch" class="search-button">
-            검색
-          </button>
+          <input type="text" v-model="searchQuery" @keyup.enter="goToSearch" placeholder="책 검색..." class="search-input"/>
+          <button @click="goToSearch" class="search-button">검색</button>
         </div>
       </div>
 
-      <!-- 로그인 상태에 따라 버튼 변경 -->
       <div v-if="isLoggedIn" class="user-info">
         <span class="nickname">{{ nickname }} 님</span>
         <button @click="handleLogout" class="logout-button">로그아웃</button>
@@ -26,17 +16,19 @@
       <button v-else @click="goToLogin" class="login-button">로그인 및 회원가입</button>
     </header>
 
-    <!-- 메뉴바 -->
     <nav class="navbar">
       <ul>
-        <li><router-link to="/category">카테고리</router-link></li>
-        <li><router-link to="/community">커뮤니티</router-link></li>
-        <li><router-link to="/guidelines">이용안내</router-link></li>
-        <li><router-link to="/mybooks">나만의책장</router-link></li>
+        <li>
+          <router-link to="/guidelines" class="item" exact-active-class="active">이용안내</router-link>
+        </li>
+        <li>
+          <router-link to="/community" class="item" exact-active-class="active">커뮤니티</router-link>
+        </li>
+        <li>
+          <router-link to="/mybooks" class="item" exact-active-class="active">나만의책장</router-link>
+        </li>
       </ul>
     </nav>
-
-    <!-- 화면별 콘텐츠 -->
     <main>
       <router-view />
     </main>
@@ -54,25 +46,31 @@ export default {
       searchQuery: '' // 검색 쿼리
     };
   },
+
   async mounted() {
     await this.checkLoginStatus(); // 페이지 로드 시 로그인 상태 확인
     window.addEventListener('storage', this.syncLoginStatus); // 다른 탭에서 로그인 상태 변경 감지
   },
+
   beforeUnmount() {
     window.removeEventListener('storage', this.syncLoginStatus);
   },
+
   watch: {
     '$route'() {
       this.checkLoginStatus(); // 페이지 이동 시 로그인 상태 확인
     }
   },
+
   methods: {
     goToHome() {
       this.$router.push('/');
     },
+
     goToLogin() {
       this.$router.push('/login');
     },
+
     async handleLogout() {
       try {
         await axios.post('/api/user/logout'); // 로그아웃 요청
@@ -146,10 +144,10 @@ header {
 }
 
 .logo {
-  width: 15%;
+  
   height: 50px;
   cursor: pointer;
-  border: 7px solid rgb(188, 110, 0);
+  border: 5px solid #FFA500;
   border-radius: 4px;
 }
 
@@ -186,10 +184,6 @@ header {
   z-index: 90;
 }
 
-.navbar:hover {
-  background-color: #e39400; /* 마우스 hover 시 어두운 주황색 */
-}
-
 .navbar ul {
   display: flex;
   justify-content: center;
@@ -203,16 +197,37 @@ header {
   position: relative;
 }
 
-.navbar ul li a {
+.navbar ul li .item {
   text-decoration: none;
   color: #fff;
   font-size: 16px;
   padding: 5px 0;
   transition: color 0.3s ease;
+  position: relative;
 }
 
-.navbar ul li a:hover {
+.navbar ul li .item:hover,
+.navbar ul li .item.active {
   color: #333;
+}
+
+.navbar ul li .item:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -6px;
+  width: 100%;
+  height: 5px;
+  opacity: 0;
+  background-color: #0000004b;
+  border-radius: 6px 6px 0 0;
+  transition: .3s;
+}
+
+.navbar ul li .item:hover:before,
+.navbar ul li .item.active:before {
+  bottom: 0;
+  opacity: 1;
 }
 
 main {

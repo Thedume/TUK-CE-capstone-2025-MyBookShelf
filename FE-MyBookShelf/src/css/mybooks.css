@@ -19,89 +19,106 @@
 
 /* ---------- 책장 리스트박스 ---------- */
 /* ---------------------------------- */
+/* 📚 책장 셀렉트박스 */
 .bookshelf-select {
-  padding: 5px;
-  margin-right: 10px;
-  width: 300px;
-  text-align: center;
+  padding: 10px 16px;
+  margin-right: 16px;
+  width: 320px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.3s;
+}
+.bookshelf-select:focus {
+  border-color: #007bff;
+  outline: none;
 }
 
-/* 책장 폼 위에 있는 버튼들 공통 스타일 */
+/* 📌 버튼 공통 스타일 */
 .rename-button,
 .add-bookshelf-button,
 .delete-bookshelf-button,
-.add-book-button {
-  color: white;
+.add-book-button,
+.recommend-button,
+.edit-button,
+.share-button {
+  font-size: 15px;
+  padding: 10px 20px;
+  margin-right: 10px;
   border: none;
-  border-radius: 4px;
-  padding: 5px 10px;
+  border-radius: 10px;
+  color: white;
   cursor: pointer;
-  margin-right: 5px;
-  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* 이름 변경 */
+/* ✏ 이름 변경 */
 .rename-button {
   background-color: #ffa500;
 }
 .rename-button:hover {
   background-color: #e68900;
+  transform: translateY(-2px);
 }
 
-/* 책장 생성 */
+/* ➕ 책장 생성 */
 .add-bookshelf-button {
   background-color: #28a745;
 }
 .add-bookshelf-button:hover {
   background-color: #218838;
+  transform: translateY(-2px);
 }
 
-/* 책장 삭제 */
+/* 🗑 책장 삭제 */
 .delete-bookshelf-button {
   background-color: #dc3545;
 }
 .delete-bookshelf-button:hover {
   background-color: #c82333;
+  transform: translateY(-2px);
 }
 
-/* 책 등록 */
+/* 📘 책 등록 */
 .add-book-button {
   background-color: #007bff;
-  padding: 5px 15px;
-  margin-left: 30px;
+  margin-left: 20px;
 }
 .add-book-button:hover {
   background-color: #0056b3;
+  transform: translateY(-2px);
 }
 
-/* 추천 받기 */
+/* 🤖 도서 추천 */
 .recommend-button {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 5px 30px;
-  cursor: pointer;
-  margin-right: 5px;
-  text-align: center;
+  background-color: #6f42c1;
 }
 .recommend-button:hover {
-  background-color: #0056b3;
+  background-color: #5a32a3;
+  transform: translateY(-2px);
 }
 
-/* 편집 */
+/* 🧹 도서 삭제 모드 */
 .edit-button {
-  background-color: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  padding: 5px 15px;
-  cursor: pointer;
-  text-align: center;
+  background-color: #e74c3c;
 }
 .edit-button:hover {
-  background-color: #c82333;
+  background-color: #c0392b;
+  transform: translateY(-2px);
 }
+
+/* 📤 책장 공유 */
+.share-button {
+  background-color: #17a2b8;
+}
+.share-button:hover {
+  background-color: #138496;
+  transform: translateY(-2px);
+}
+
 
 /* ---------- 네모난 책장 폼 ---------- */
 /* --------------------------------- */
@@ -189,7 +206,7 @@
 
 /* 추가 메뉴 */
 .context-menu {
-  position: absolute;
+  position: fixed;
   background-color: white;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -209,127 +226,228 @@
   background-color: #f0f0f0; /* 마우스 오버 시 배경색 변경 */
 }
 
-/* ---------- 책 등록 추가 모달 ---------- */
-/* ------------------------------------ */
+/* ---------- 책장 추가 모달 ---------- */
 .add-bookshelf-modal {
-  position: fixed; /* 화면 중앙 고정 */
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 300px;
-  padding: 20px;
-  background-color: white;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  width: 340px;
+  padding: 28px 24px;
+  background: #fffdf9;
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
   z-index: 1000;
+  animation: fadeInModal 0.3s ease;
 }
 
 .add-bookshelf-modal-content {
   display: flex;
   flex-direction: column;
+  gap: 14px;
+  font-family: 'Segoe UI', sans-serif;
 }
 
+.add-bookshelf-modal-content label {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.add-bookshelf-modal-content input[type="text"] {
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  font-size: 15px;
+  outline: none;
+  transition: border 0.2s ease;
+}
+
+.add-bookshelf-modal-content input[type="text"]:focus {
+  border-color: #ffa500;
+  box-shadow: 0 0 5px rgba(255, 165, 0, 0.5);
+}
+
+/* 책장 생성 버튼 */
 .create-bookshelf-button {
-  background-color: #28a745; /* 버튼 색상 */
-  color: white; /* 글자 색상 */
-  border: none; /* 기본 테두리 제거 */
-  padding: 8px; /* 내부 여백 */
-  border-radius: 4px; /* 모서리 둥글게 */
-  cursor: pointer; /* 마우스 커서 변경 */
-  margin-top: 10px;
-  margin-bottom: 5px; /* 아래쪽 여백 */
-}
-
-.close-modal-button {
-  background-color: #dc3545;
+  background-color: #ffa500;
   color: white;
   border: none;
-  padding: 8px;
-  border-radius: 4px;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 15px;
   cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+}
+.create-bookshelf-button:hover {
+  background-color: #ff8c00;
 }
 
-.loading-message {
-  font-size: 30px; /* 글씨 크기 조정 */
-  color: #333; /* 글씨 색상 (원하는 색상으로 변경 가능) */
-  margin-top: 20px; /* 위쪽 여백 추가 */
+/* 취소 버튼 */
+.close-modal-button {
+  background-color: #e0e0e0;
+  color: #333;
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+.close-modal-button:hover {
+  background-color: #d0d0d0;
 }
 
-/* 추천 받기 모달 */
-.recommendation-modal {
+/* ---------- 로딩 모달 ---------- */
+.loading-modal {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.35);
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1001; /* 다른 요소 위에 표시 */
+  z-index: 999;
 }
-.recommendation-modal-content {
-  background-color: rgb(255, 224, 189);
+
+.loading-modal-content {
+  background: #fff;
+  padding: 30px;
+  border-radius: 14px;
+  text-align: center;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
+  animation: fadeInModal 0.4s ease;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 16px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #ffa500;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-modal-content p {
+  margin-bottom: 16px;
+  color: #444;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.cancel-recommendation-button {
+  background-color: #ccc;
+  color: #333;
+  padding: 10px 18px;
+  border: none;
   border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 10px 10px rgba(0, 0, 0, 0.2);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
+.cancel-recommendation-button:hover {
+  background-color: #bbb;
+}
+
+/* ---------- 공통 애니메이션 ---------- */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeInModal {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -60%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* === 🪟 추천 모달 전체 배경 === */
+.recommendation-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1001;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* === 📦 모달 콘텐츠 박스 === */
+.recommendation-modal-content {
+  background: linear-gradient(135deg, #fffdf7, #ffe0b3);
+  border-radius: 18px;
+  padding: 40px 30px;
+  width: 90%;
+  max-width: 580px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+  animation: fadeIn 0.3s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* === ⬆️ 추천 방식 선택 버튼들 (상단) === */
 .plus-recommendation-options {
   display: flex;
-  justify-content: center; /* 가운데 정렬 */
-  gap: 10px; /* 버튼 간의 간격 조정 */
-  margin-bottom: 20px; /* 아래쪽 여백 */
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 30px;
 }
 
 .plus-recommendation-options button {
-  padding: 12px 24px;
+  flex: 1;
+  padding: 14px 20px;
+  font-weight: 600;
+  font-size: 15px;
+  border-radius: 10px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  background-color: #f9f9f9;
+  color: #333;
   cursor: pointer;
-  background-color: #f0f0f0; /* 기본 배경색 */
-  transition: background-color 0.3s, border-color 0.3s;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-grow: 1; /* 버튼들이 고르게 배치되도록 함 */
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
-
 .plus-recommendation-options button:hover {
-  background-color: #f5f5f5; /* 호버 시 색상 변경 */
+  background-color: #f0f0f0;
+  transform: translateY(-2px);
 }
-
 .plus-recommendation-options button.active {
-  background-color: #ffa500; /* 선택된 버튼의 배경색 */
+  background-color: #ff9900;
   color: white;
-  border-color: #c47f00; /* 선택된 버튼의 테두리 색상 */
+  border-color: #cc7a00;
+  box-shadow: 0 3px 10px rgba(255, 165, 0, 0.35);
 }
 
-.plus-recommendation-options button:not(.active):not(:disabled) {
-  background-color: #f0f0f0; /* 비활성 버튼의 배경색 */
-  border-color: #ccc; /* 비활성 버튼의 테두리 색상 */
-  color: #888; /* 비활성 버튼의 글자 색상 */
-}
-
-.plus-recommendation-options button:disabled {
-  background-color: #ddd;
-  cursor: not-allowed;
-  border-color: #bbb;
-  color: #bbb; /* 연한 회색으로 글자 색상 */
-}
-
+/* === 📑 설명 문구 정렬 === */
 .recommendation-options {
-  display: flex;
-  flex-direction: column; /* 세로 정렬로 변경 */
-  align-items: center; /* 가운데 정렬 */
-  margin-bottom: 20px; /* 아래쪽 여백 */
+  text-align: center;
+  font-size: 16px;
+  color: #444;
+  line-height: 1.6;
 }
+
+/* === ✅ 버튼 컨테이너 (추천받기, 취소 등) === */
 .button-container {
   display: flex;
-  justify-content: center; /* 버튼을 가운데 정렬 */
-  gap: 10px; /* 버튼 간의 간격 조정 */
-  margin-top: 10px; /* 위쪽 여백 */
-} 
+  justify-content: center;
+  gap: 14px;
+  margin-top: 24px;
+}
+
 .recommend-books-button {
   background-color: #28a745; /* 추천받기 버튼 색상 */
   color: white;
@@ -337,6 +455,88 @@
   border-radius: 4px;
   padding: 12px 15px;
   cursor: pointer;
+}
+
+/* === 💡 추천받기 버튼 === */
+.recommend-books-button,
+.next-button,
+.prev-button {
+  background-color: #28a745;
+  color: white;
+  font-weight: 600;
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.25s ease;
+}
+.recommend-books-button:hover,
+.next-button:hover,
+.prev-button:hover {
+  background-color: #218838;
+}
+
+/* === ❌ 취소 버튼 === */
+.close-modal-button {
+  background-color: #ccc;
+  color: #333;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.25s ease;
+}
+.close-modal-button:hover {
+  background-color: #bbb;
+}
+
+/* === 📊 설문 - 진행도 표시 === */
+.progress-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0 30px;
+}
+.dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #ddd;
+  transition: background-color 0.3s;
+}
+.dot.active {
+  background-color: #ffa500;
+  box-shadow: 0 0 0 3px rgba(255,165,0,0.2);
+}
+
+/* === 🔲 설문 옵션 버튼 스타일 === */
+.option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin: 0 auto;
+  max-width: 400px;
+}
+
+.survey-option-button {
+  padding: 16px;
+  font-weight: 600;
+  background-color: #f7f7f7;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.survey-option-button:hover {
+  background-color: #eee;
+  transform: translateY(-2px);
+}
+.survey-option-button.selected {
+  background-color: #ffa500;
+  border-color: #cc7a00;
+  color: white;
+  box-shadow: 0 4px 12px rgba(255, 165, 0, 0.3);
 }
 
 /* ---------- 추가 평점 모달 ---------- */
@@ -350,8 +550,9 @@
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 1002; /* 사이드바보다 위에 표시 */
-  width: 1000px;
+  z-index: 1002;
+  width: 90vw;        /* 뷰포트 기준 너비로 더 넓게 설정 */
+  max-width: 2000px;  /* 너무 넓어지지 않게 제한값 추가 */
 }
 
 .additional-rating-modal-content {
@@ -371,11 +572,12 @@
 
 .rating-list {
   display: flex;
-  flex-direction: column; /* 세로 방향 정렬 */
+  flex-wrap: wrap;
   gap: 10px; /* 항목 간의 간격 */
 }
 
 .rating-item {
+  width: calc(50% - 20px);
   display: flex; /* 가로 방향 정렬 */
   align-items: center; /* 수직 정렬 */
   gap: 10px; /* 책 표지와 정보 간의 간격 */
@@ -383,6 +585,7 @@
   padding: 10px; /* 내부 여백 */
   border-radius: 5px; /* 모서리 둥글게 */
   background-color: #f9f9f9; /* 배경색 */
+  box-sizing: border-box;
 }
 
 .rating-cover {
@@ -767,4 +970,10 @@
 }
 .rating-save-button:hover {
   background-color: #45a049;
+}
+
+.survey-title {
+  font-weight: bold;
+  font-size: 18px;
+  margin-bottom: 10px;
 }
